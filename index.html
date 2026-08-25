@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kairos Proposal | リバースプロキシ設計・構築のご提案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy: #16233d;
+    --slate: #3e5c76;
+    --mint: #5cbdae;
+    --sand: #eee7dd;
+    --charcoal: #24283b;
+    --amber: #e8985e;
+  }
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html{ scroll-behavior: smooth; }
+  body{
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--sand);
+    color: var(--charcoal);
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, .mono{
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .code-tag{
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  a{ color: inherit; }
+
+  /* ===== HERO ===== */
+  .hero{
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(160deg, var(--navy) 0%, #1f3452 55%, var(--slate) 100%);
+    color: var(--sand);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    padding: 100px 24px 80px;
+  }
+  .net-lines{
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+  }
+  .net-lines svg{ width: 100%; height: 100%; }
+  .hero-inner{
+    position: relative;
+    z-index: 2;
+    max-width: 980px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .hero-tag{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    color: var(--mint);
+    background: rgba(92,189,174,0.1);
+    border: 1px solid rgba(92,189,174,0.35);
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 32px;
+  }
+  .hero-tag::before{
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--mint);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--mint);
+  }
+  .hero h1{
+    font-size: clamp(32px, 5vw, 58px);
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 28px;
+    letter-spacing: -0.01em;
+  }
+  .hero h1 span{
+    color: var(--mint);
+  }
+  .hero p.lead{
+    font-size: clamp(15px, 1.8vw, 18px);
+    color: #cbd5df;
+    max-width: 620px;
+    margin-bottom: 40px;
+    font-weight: 300;
+  }
+  .hero-meta{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .meta-chip{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 10px 16px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    color: #dbe3ea;
+  }
+  .meta-chip b{ color: var(--amber); font-weight: 500; }
+
+  /* diagram nodes */
+  .diagram{
+    position: absolute;
+    right: -4%;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46%;
+    max-width: 480px;
+    opacity: 0.9;
+  }
+  @media (max-width: 900px){ .diagram{ display:none; } }
+  .node{
+    position: absolute;
+    border: 1px solid rgba(92,189,174,0.5);
+    background: rgba(22,35,61,0.6);
+    color: var(--mint);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    backdrop-filter: blur(2px);
+  }
+
+  section{
+    padding: 100px 24px;
+  }
+  .section-inner{
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .kicker{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--slate);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: block;
+  }
+  h2.section-title{
+    font-size: clamp(24px, 3.5vw, 36px);
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+  }
+
+  /* ===== UNDERSTANDING ===== */
+  .understand{
+    background: #fff;
+    position: relative;
+  }
+  .understand::before{
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 6px;
+    background: linear-gradient(180deg, var(--mint), var(--slate));
+  }
+  .req-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 40px;
+  }
+  @media (max-width: 760px){ .req-grid{ grid-template-columns: 1fr; } }
+  .req-card{
+    background: var(--sand);
+    border-radius: 10px;
+    padding: 26px 22px;
+    border-left: 3px solid var(--slate);
+  }
+  .req-card .num{
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--amber);
+    font-size: 13px;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .req-card p{ font-size: 14.5px; color: var(--charcoal); }
+  .req-card strong{ display:block; font-size: 16px; margin-bottom: 6px; color: var(--navy);}
+
+  .summary-line{
+    margin-top: 44px;
+    padding: 24px 28px;
+    background: var(--navy);
+    color: var(--sand);
+    border-radius: 10px;
+    font-size: 15.5px;
+    line-height: 1.9;
+  }
+  .summary-line b{ color: var(--mint); }
+
+  /* ===== VALUE ===== */
+  .value{
+    background: var(--charcoal);
+    color: var(--sand);
+  }
+  .value .kicker{ color: var(--mint); }
+  .value h2.section-title{ color: #fff; }
+  .value-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 44px;
+  }
+  @media (max-width: 900px){ .value-grid{ grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 600px){ .value-grid{ grid-template-columns: 1fr; } }
+  .vcard{
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 30px 24px;
+    transition: 0.25s;
+  }
+  .vcard:hover{
+    border-color: var(--mint);
+    transform: translateY(-4px);
+    background: rgba(92,189,174,0.06);
+  }
+  .vcard .icon{
+    width: 42px; height: 42px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--mint), var(--slate));
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    color: var(--navy);
+    font-size: 15px;
+  }
+  .vcard h3{
+    font-size: 17.5px;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .vcard p{
+    font-size: 13.8px;
+    color: #b9c2cc;
+    font-weight: 300;
+  }
+
+  /* ===== FLOW ===== */
+  .flow{
+    background: var(--sand);
+  }
+  .timeline{
+    margin-top: 50px;
+    position: relative;
+  }
+  .timeline::before{
+    content:'';
+    position: absolute;
+    left: 22px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: repeating-linear-gradient(180deg, var(--slate) 0 6px, transparent 6px 12px);
+  }
+  @media (max-width: 640px){ .timeline::before{ left: 15px; } }
+  .step{
+    position: relative;
+    padding-left: 64px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 640px){ .step{ padding-left: 46px; } }
+  .step:last-child{ margin-bottom: 0; }
+  .step .dot{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: var(--mint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    border: 2px solid var(--mint);
+    z-index: 2;
+  }
+  @media (max-width: 640px){ .step .dot{ width: 32px; height: 32px; font-size: 11px; } }
+  .step h3{
+    font-size: 17px;
+    color: var(--navy);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .step .tag{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    margin-left: 10px;
+  }
+  .step p{
+    font-size: 14px;
+    color: #4a4f5c;
+    max-width: 620px;
+  }
+
+  .stack-note{
+    margin-top: 50px;
+    background: #fff;
+    border: 1px dashed var(--slate);
+    border-radius: 10px;
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--navy);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+  }
+  .stack-note span::before{
+    content: '▹ ';
+    color: var(--mint);
+  }
+
+  /* ===== CTA ===== */
+  .cta{
+    background: linear-gradient(140deg, var(--navy), #23405f 60%, var(--slate));
+    color: var(--sand);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta::after{
+    content:'';
+    position: absolute;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(92,189,174,0.15), transparent 70%);
+    top: -150px; right: -150px;
+  }
+  .cta-inner{
+    position: relative;
+    z-index: 2;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .cta .kicker{ color: var(--mint); }
+  .cta h2{
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  .cta p{
+    font-size: 15px;
+    color: #d3dde3;
+    margin-bottom: 40px;
+    font-weight: 300;
+  }
+  .cta-btn{
+    display: inline-block;
+    background: var(--amber);
+    color: var(--navy);
+    font-weight: 700;
+    padding: 18px 44px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 15px;
+    letter-spacing: 0.03em;
+    transition: 0.2s;
+    box-shadow: 0 8px 24px rgba(232,152,94,0.3);
+  }
+  .cta-btn:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(232,152,94,0.4);
+  }
+  .cta-foot{
+    margin-top: 34px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: #93a4b3;
+  }
+
+  footer{
+    background: var(--charcoal);
+    color: #7c8794;
+    text-align: center;
+    padding: 26px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="net-lines">
+    <svg viewBox="0 0 800 800" preserveAspectRatio="none">
+      <line x1="0" y1="650" x2="800" y2="200" stroke="#5cbdae" stroke-width="1" opacity="0.15"/>
+      <line x1="0" y1="750" x2="800" y2="350" stroke="#5cbdae" stroke-width="1" opacity="0.12"/>
+      <line x1="100" y1="0" x2="700" y2="800" stroke="#3e5c76" stroke-width="1" opacity="0.15"/>
+      <circle cx="620" cy="230" r="3" fill="#5cbdae" opacity="0.6"/>
+      <circle cx="150" cy="600" r="3" fill="#5cbdae" opacity="0.6"/>
+      <circle cx="450" cy="120" r="2" fill="#e8985e" opacity="0.6"/>
+    </svg>
+  </div>
+
+  <div class="diagram">
+    <div class="node" style="top:6%; left:52%;">CLIENT :443</div>
+    <div class="node" style="top:38%; left:8%; border-color:#e8985e; color:#e8985e;">nginx :80/443</div>
+    <div class="node" style="top:70%; left:40%;">WebApp #1</div>
+    <div class="node" style="top:90%; left:5%;">WebApp #2 (new)</div>
+    <div class="node" style="top:56%; left:60%;">RDS Admin</div>
+    <svg style="position:absolute; inset:0; width:100%; height:100%; z-index:-1;">
+      <line x1="65%" y1="14%" x2="24%" y2="42%" stroke="#5cbdae" stroke-width="1"/>
+      <line x1="24%" y1="46%" x2="48%" y2="72%" stroke="#5cbdae" stroke-width="1"/>
+      <line x1="24%" y1="50%" x2="18%" y2="90%" stroke="#5cbdae" stroke-width="1"/>
+      <line x1="30%" y1="46%" x2="68%" y2="58%" stroke="#5cbdae" stroke-width="1"/>
+    </svg>
+  </div>
+
+  <div class="hero-inner">
+    <div class="hero-tag code-tag">KAIROS PROPOSAL — Sanwa_op1 様</div>
+    <h1>ひとつの入口に、<br>ふたつの窓口を、<br><span>誤りなく</span>通す。</h1>
+    <p class="lead">
+      グローバルIPはひとつ。その先に、既存Webシステム・新規Webシステム・保守用RDS管理画面という
+      3つの目的地がある。この構成を破綻なく捌く「門番」——リバースプロキシの設計と構築を、
+      Kairosが担当いたします。
+    </p>
+    <div class="hero-meta">
+      <div class="meta-chip">予算 <b>¥50,000 〜 ¥100,000</b></div>
+      <div class="meta-chip">OS <b>Ubuntu</b></div>
+      <div class="meta-chip">エンジン <b>nginx</b></div>
+      <div class="meta-chip">ライセンス <b>OSS Only</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== UNDERSTANDING ===== -->
+<section class="understand">
+  <div class="section-inner">
+    <span class="kicker">Understanding / 案件理解</span>
+    <h2 class="section-title">この構成、単なる「振り分け」では終わりません。</h2>
+    <p style="max-width:640px; color:#4a4f5c; font-size:15px;">
+      ご要望を拝見し、今回の肝は「サーバの台数」ではなく「動線の設計」にあると考えています。
+      会員制で検索非対応、既存と新規の2システム、さらに保守用RDS管理画面——
+      それぞれ性質の異なる通信を、単一のグローバルIP・単一のnginxで安全に交通整理する必要があります。
+    </p>
+
+    <div class="req-grid">
+      <div class="req-card">
+        <span class="num code-tag">01</span>
+        <strong>単一IP・複数バックエンド</strong>
+        <p>グローバルIPは1つのみ。nginxのserver_block／リバースプロキシ設定でホスト名やパスに応じて既存Web・新規Webへ正しく振り分ける設計が必須です。</p>
+      </div>
+      <div class="req-card">
+        <span class="num code-tag">02</span>
+        <strong>非公開・手打ちURL運用</strong>
+        <p>会員制でクローラー非対応。検索エンジン向けの最適化は不要な一方、意図しないパスからの到達を防ぐアクセス制御の設計が重要になります。</p>
+      </div>
+      <div class="req-card">
+        <span class="num code-tag">03</span>
+        <strong>RDS管理画面の隔離</strong>
+        <p>保守用RDSシステムは一般ユーザーの導線と混在させず、リバースプロキシ側で明確に切り分けることで誤操作・誤到達のリスクを下げます。</p>
+      </div>
+      <div class="req-card">
+        <span class="num code-tag">04</span>
+        <strong>既存資産（PC）の再利用</strong>
+        <p>以前使用の実機PCをUbuntuサーバとしてテスト導入。限られたリソースでも安定稼働するnginx構成にチューニングします。</p>
+      </div>
+      <div class="req-card">
+        <span class="num code-tag">05</span>
+        <strong>フリーライセンス縛り</strong>
+        <p>Ubuntu／nginxいずれもOSSで完結。ライセンス費用が発生しない構成に統一し、予算内での実現性を最優先します。</p>
+      </div>
+      <div class="req-card">
+        <span class="num code-tag">06</span>
+        <strong>IIS/Apache双方の経験</strong>
+        <p>既存環境がIIS・Apacheいずれであっても、移行や共存を見据えたリバースプロキシ設計に対応可能です。</p>
+      </div>
+    </div>
+
+    <div class="summary-line">
+      要するに今回のゴールは、<b>「一つの玄関から、正しい部屋へ、迷わず案内する」</b>仕組みを、
+      無償のソフトウェアだけで、最小構成のマシン上に組み上げることだと理解しています。
+    </div>
+  </div>
+</section>
+
+<!-- ===== VALUE ===== -->
+<section class="value">
+  <div class="section-inner">
+    <span class="kicker">Value / Kairosが提供できること</span>
+    <h2 class="section-title">設計図を描き、動く形にして、引き渡します。</h2>
+
+    <div class="value-grid">
+      <div class="vcard">
+        <div class="icon">01</div>
+        <h3>要件に即した振り分け設計</h3>
+        <p>ホスト名 / パスベースのルーティング方針を明文化し、既存Web・新規Web・RDS管理画面を安全に分離するnginx設定を設計します。</p>
+      </div>
+      <div class="vcard">
+        <div class="icon">02</div>
+        <h3>Ubuntu環境の構築・最適化</h3>
+        <p>再利用PCへのUbuntuセットアップから、nginxのインストール・チューニングまで一貫して対応。限られたリソースでの安定稼働を重視します。</p>
+      </div>
+      <div class="vcard">
+        <div class="icon">03</div>
+        <h3>アクセス制御・非公開運用の担保</h3>
+        <p>検索非対応・会員制という前提を踏まえ、意図しないアクセスを防ぐ設定（Basic認証、IP制限、Location制御など）をご提案します。</p>
+      </div>
+      <div class="vcard">
+        <div class="icon">04</div>
+        <h3>IIS/Apache知見を活かした橋渡し</h3>
+        <p>既存システムがIISやApacheで稼働していても、nginxリバースプロキシとの接続部分を丁寧に検証・調整します。</p>
+      </div>
+      <div class="vcard">
+        <div class="icon">05</div>
+        <h3>ドキュメント化された引き渡し</h3>
+        <p>設定ファイルの意図・変更手順を残し、社内での今後の保守・拡張（3システム目の追加等）にも対応しやすい形で納品します。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FLOW ===== -->
+<section class="flow">
+  <div class="section-inner">
+    <span class="kicker">Process / 進め方</span>
+    <h2 class="section-title">テスト機での検証から、確実に。</h2>
+    <p style="max-width:600px; color:#4a4f5c; font-size:15px;">
+      まずは以前ご利用のPCでのテスト導入というお話ですので、影響範囲を抑えながら段階的に進めます。
+      納期はご相談の上で決定できればと考えています。
+    </p>
+
+    <div class="timeline">
+      <div class="step">
+        <div class="dot code-tag">01</div>
+        <h3>ヒアリング・構成確認 <span class="tag">〜1営業日</span></h3>
+        <p>既存Web／新規Web／RDS管理画面のアクセス要件、ドメイン・証明書の有無、テストPCのスペックを確認します。</p>
+      </div>
+      <div class="step">
+        <div class="dot code-tag">02</div>
+        <h3>設計・構成案の提示</h3>
+        <p>ルーティング方針、アクセス制御方式、ディレクトリ・設定ファイル構成をドキュメントでご確認いただきます。</p>
+      </div>
+      <div class="step">
+        <div class="dot code-tag">03</div>
+        <h3>Ubuntu / nginx 構築</h3>
+        <p>テスト機へのOSセットアップ、nginxインストール、リバースプロキシ設定の実装を行います。</p>
+      </div>
+      <div class="step">
+        <div class="dot code-tag">04</div>
+        <h3>動作検証</h3>
+        <p>2つのWebシステム・RDS管理画面それぞれへの到達性、想定外アクセスの遮断を確認します。</p>
+      </div>
+      <div class="step">
+        <div class="dot code-tag">05</div>
+        <h3>引き渡し・手順共有</h3>
+        <p>設定内容・変更手順をまとめてお渡しし、本番展開や追加システムへの拡張相談も承ります。</p>
+      </div>
+    </div>
+
+    <div class="stack-note">
+      <span>Ubuntu Server</span>
+      <span>nginx (reverse_proxy)</span>
+      <span>Let's Encrypt 検討可</span>
+      <span>UFW / アクセス制御</span>
+      <span>ライセンス費用 ¥0</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta">
+  <div class="cta-inner">
+    <span class="kicker">Next Step</span>
+    <h2>まずは構成のたたき台を、お見せします。</h2>
+    <p>
+      グローバルIP1つ・システム2つ・RDS1つ——この条件でどこまで安全かつシンプルに
+      組めるか、無料の範囲でラフな構成案をご提示することも可能です。
+      お気軽にメッセージをお送りください。
+    </p>
+    <a href="#" class="cta-btn">Kairosに相談・見積もりを依頼する</a>
+    <div class="cta-foot code-tag">Kairos — Web制作・システム開発チーム / Proposal for Sanwa_op1</div>
+  </div>
+</section>
+
+<footer>
+  © Kairos Team — Reverse Proxy Design &amp; Build Proposal
+</footer>
+
+</body>
+</html>
